@@ -13,7 +13,7 @@ Estimated cost: ~$30/mo for a t3.medium on-demand (less with spot/savings plan).
 
 1. `aws configure` with credentials that can create EC2 + security groups.
 2. Create an EC2 key pair in your target region.
-3. Copy `.env.example` → `.env` and set `OPENAI_API_KEY` (or leave empty for MOCK).
+3. Copy `.env.example` → `.env` and set `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`, or leave empty for MOCK).
 4. Review the script — **it has never been run** and provisions real resources.
 
 ## What it does
@@ -28,6 +28,6 @@ Estimated cost: ~$30/mo for a t3.medium on-demand (less with spot/savings plan).
 
 - Put the instance behind an ALB + ACM certificate for HTTPS (browsers require
   HTTPS for microphone access on non-localhost origins).
-- Move `OPENAI_API_KEY` to AWS Secrets Manager / SSM Parameter Store.
+- Move API keys (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`) to AWS Secrets Manager / SSM Parameter Store.
 - Use an ECR-hosted image + ECS Fargate if you need multi-instance scale-out
   (sessions are currently in-memory per worker — add Redis for that).

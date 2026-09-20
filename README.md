@@ -1,28 +1,28 @@
 # 🎙️ AI Confessor — Conversational AI Platform
 
 A real-time conversational AI platform: speak into your mic, get a spoken AI
-reply back. FastAPI + WebSockets stream GPT-4 tokens with low latency, Vosk
-transcribes your voice on-device, and Edge TTS voices the reply. Text chat
-works as a fallback. Everything runs in Docker with one command.
+reply back. FastAPI + WebSockets stream tokens from Claude or GPT-4 with low
+latency, Vosk transcribes your voice on-device, and Edge TTS voices the reply.
+Text chat works as a fallback. Everything runs in Docker with one command.
 
 ```
 Browser (mic / chat UI)
    │  WebSocket /ws/chat (JSON: text, audio chunks, tokens, mp3 audio)
    ▼
-FastAPI backend ──► Vosk STT (on-device) ──► GPT-4 (streaming) ──► Edge TTS ──► 🔊
+FastAPI backend ──► Vosk STT (on-device) ──► Claude / GPT-4 (streaming) ──► Edge TTS ──► 🔊
    │ per-connection session state (conversation history, sliding window)
 ```
 
 ## Quick start
 
 ```bash
-cp .env.example .env          # add OPENAI_API_KEY, or leave empty for MOCK mode
+cp .env.example .env          # add ANTHROPIC_API_KEY or OPENAI_API_KEY, or leave empty for MOCK mode
 docker compose up --build     # first run downloads the ~40 MB Vosk model automatically
 ```
 
 Open **http://localhost:3000**, allow mic access, and talk.
 
-Without an `OPENAI_API_KEY` the app runs in **MOCK mode**: canned streaming
+Without any API key the app runs in **MOCK mode**: canned streaming
 replies exercise the entire voice → AI → voice loop end-to-end.
 
 ## Project layout
@@ -33,7 +33,7 @@ ai-confessor/
 │   ├── app/
 │   │   ├── main.py        # FastAPI app, /ws/chat protocol, REST endpoints
 │   │   ├── config.py      # env-driven settings (no hardcoded secrets)
-│   │   ├── llm.py         # pluggable LLM client: OpenAI streaming / mock
+│   │   ├── llm.py         # pluggable LLM client: Anthropic (Claude) / OpenAI streaming / mock
 │   │   ├── stt.py         # Vosk STT, auto-downloads small EN model
 │   │   ├── tts.py         # Edge TTS (free, keyless) -> MP3 bytes
 │   │   └── sessions.py    # per-connection session state + history window
@@ -59,9 +59,11 @@ All settings come from environment variables (see `.env.example`):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LLM_PROVIDER` | `openai` | LLM backend (`openai` = live) |
-| `LLM_MODEL` | `gpt-4o` | Any OpenAI chat model |
-| `OPENAI_API_KEY` | _(empty)_ | Unset → MOCK mode |
+| `LLM_PROVIDER` | _(empty)_ | `anthropic` \| `openai` \| `mock`. Empty = auto-select: `ANTHROPIC_API_KEY` set → anthropic, else `OPENAI_API_KEY` set → openai, else mock |
+| `ANTHROPIC_API_KEY` | _(empty)_ | Claude key — wins auto-select when set |
+| `ANTHROPIC_MODEL` | `claude-sonnet-4-6` | Any Claude model ID |
+| `OPENAI_API_KEY` | _(empty)_ | OpenAI key — used when set and no Anthropic key present |
+| `OPENAI_MODEL` | `gpt-4o` | Any OpenAI chat model |
 | `OPENAI_BASE_URL` | _(empty)_ | Proxy / Azure-compatible endpoint |
 | `VOSK_MODEL_NAME` | `vosk-model-small-en-us-0.15` | STT model (auto-downloaded) |
 | `TTS_ENABLED` | `true` | Spoken replies on/off |
@@ -101,8 +103,9 @@ pytest tests/ -v
 ```
 
 Covers: mock-mode streaming, session isolation (concurrent users), WebSocket
-round-trip, and the STT/TTS modules (network-dependent parts are skipped
-gracefully offline).
+round-trip, and that no secrets leak through public endpoints. STT/TTS are
+faked in the test suite (no model download, no network); the tester verified
+the real Vosk model and the TTS fallback separately.
 
 ## AWS deployment
 

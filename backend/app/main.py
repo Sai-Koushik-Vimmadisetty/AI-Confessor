@@ -112,7 +112,8 @@ async def _handle_user_message(ws: WebSocket, session, user_text: str) -> None:
         return
 
     full_reply = "".join(full_reply_parts).strip()
-    await session.add_message("assistant", full_reply)
+    if full_reply:
+        await session.add_message("assistant", full_reply)
 
     # Speak the reply (best-effort: text chat works even if TTS fails).
     if settings.tts_enabled and full_reply:

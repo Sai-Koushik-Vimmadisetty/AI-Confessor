@@ -51,7 +51,12 @@ export async function startRecording(onChunk: (base64pcm: string) => void): Prom
   };
   source.connect(node);
   // Worklet nodes need a destination connection in some browsers to run.
-  node.connect(ctx.destination);
+  // Route through a zero-gain node so the mic is NOT played back through
+  // the speakers (that would cause live feedback / howling).
+  const mute = ctx.createGain();
+  mute.gain.value = 0;
+  node.connect(mute);
+  mute.connect(ctx.destination);
 
   return {
     stop: () => {
@@ -66,6 +71,7 @@ export async function startRecording(onChunk: (base64pcm: string) => void): Prom
 /* Playback: backend sends base64 MP3. Queued so replies never overlap. */
 const queue: string[] = [];
 let playing = false;
+let currentAudio: HTMLAudioElement | null = null;
 
 function playNext() {
   if (playing) return;
@@ -75,15 +81,15 @@ function playNext() {
   const bytes = Uint8Array.from(atob(next), (c) => c.charCodeAt(0));
   const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
   const audio = new Audio(url);
-  audio.onended = audio.onerror = () => {
+  currentAudio = audio;
+  const done = () => {
     URL.revokeObjectURL(url);
+    if (currentAudio === audio) currentAudio = null;
     playing = false;
     playNext();
   };
-  void audio.play().catch(() => {
-    playing = false;
-    playNext();
-  });
+  audio.onended = audio.onerror = done;
+  void audio.play().catch(done);
 }
 
 export function playReplyAudio(base64mp3: string) {
@@ -93,4 +99,11 @@ export function playReplyAudio(base64mp3: string) {
 
 export function stopAllAudio() {
   queue.length = 0;
+  // Also stop the reply currently playing, not just the queued ones.
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.removeAttribute('src');
+    currentAudio = null;
+  }
+  playing = false;
 }

@@ -20,6 +20,10 @@ export default function ChatWindow() {
   const [thinking, setThinking] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [voiceOn, setVoiceOn] = useState(true);
+  // Read via ref inside the socket message handler so toggling voice never
+  // changes the handler's identity (which would reconnect the socket and
+  // drop the session + conversation history).
+  const voiceOnRef = useRef(voiceOn);
   const [config, setConfig] = useState<ServerConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
 
@@ -55,7 +59,7 @@ export default function ChatWindow() {
           patchStreaming(msg.token);
           break;
         case 'audio':
-          if (voiceOn) playReplyAudio(msg.data);
+          if (voiceOnRef.current) playReplyAudio(msg.data);
           break;
         case 'response_done':
           finalizeStreaming(msg.full_text);
@@ -80,7 +84,7 @@ export default function ChatWindow() {
           break;
       }
     },
-    [patchStreaming, finalizeStreaming, voiceOn],
+    [patchStreaming, finalizeStreaming],
   );
 
   useEffect(() => {
@@ -176,7 +180,11 @@ export default function ChatWindow() {
         <div className="header-actions">
           <button
             className={voiceOn ? 'btn small active' : 'btn small'}
-            onClick={() => setVoiceOn((v) => !v)}
+            onClick={() => {
+              const next = !voiceOnRef.current;
+              voiceOnRef.current = next;
+              setVoiceOn(next);
+            }}
             title="Toggle spoken replies"
           >
             🔊 Voice {voiceOn ? 'on' : 'off'}

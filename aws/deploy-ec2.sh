@@ -8,7 +8,8 @@
 # For production scale-out, prefer ECS Fargate / an ALB in front of N instances.
 #
 # Prerequisites: AWS CLI configured (aws configure), an EC2 key pair, and a
-# .env file with OPENAI_API_KEY set (or intentionally left empty for MOCK mode).
+# .env file with ANTHROPIC_API_KEY or OPENAI_API_KEY set (or intentionally
+# left empty for MOCK mode).
 #
 # Usage:
 #   ./aws/deploy-ec2.sh --key-name my-key --key-path ~/.ssh/my-key.pem [--region us-east-1] [--instance-type t3.medium]
@@ -77,11 +78,16 @@ sudo apt-get install -y -qq docker.io docker-compose-plugin
 sudo usermod -aG docker ubuntu
 EOF
 
-echo "==> Copying project..."
-scp -o StrictHostKeyChecking=no -i "$KEY_PATH" -r \
-  "$PROJECT_DIR/backend" "$PROJECT_DIR/frontend" \
-  "$PROJECT_DIR/docker-compose.yml" "$PROJECT_DIR/.env" \
-  "ubuntu@$PUBLIC_IP:~/ai-confessor/"
+echo "==> Copying project (excluding local build artifacts)..."
+tar -czf /tmp/ai-confessor-deploy.tar.gz \
+  --exclude='backend/.venv' --exclude='backend/__pycache__' \
+  --exclude='frontend/node_modules' --exclude='frontend/dist' \
+  -C "$PROJECT_DIR" backend frontend docker-compose.yml .env
+scp -o StrictHostKeyChecking=no -i "$KEY_PATH" \
+  /tmp/ai-confessor-deploy.tar.gz "ubuntu@$PUBLIC_IP:~/"
+rm -f /tmp/ai-confessor-deploy.tar.gz
+ssh -o StrictHostKeyChecking=no -i "$KEY_PATH" "ubuntu@$PUBLIC_IP" \
+  "mkdir -p ~/ai-confessor && tar -xzf ~/ai-confessor-deploy.tar.gz -C ~/ai-confessor && rm ~/ai-confessor-deploy.tar.gz"
 
 echo "==> Starting services..."
 ssh -o StrictHostKeyChecking=no -i "$KEY_PATH" "ubuntu@$PUBLIC_IP" \

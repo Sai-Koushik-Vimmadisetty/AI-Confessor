@@ -2,8 +2,10 @@
 
 Three providers behind one interface:
   - anthropic: Claude via the official `anthropic` Python SDK (ANTHROPIC_API_KEY,
-    model from ANTHROPIC_MODEL). Async streaming through
-    `client.messages.stream(...)` -> `stream.text_stream`.
+    model from ANTHROPIC_MODEL). Async streaming via `messages.create(stream=True)`,
+    parsing text deltas out of `content_block_delta` SSE events. (The 1.x SDK no
+    longer exposes sampling params like temperature on the Messages API, so we
+    stream with model defaults.)
   - openai: GPT-4 family via the official `openai` SDK (OPENAI_API_KEY,
     model from OPENAI_MODEL).
   - mock: canned streaming replies. Used when no key is present, so the whole

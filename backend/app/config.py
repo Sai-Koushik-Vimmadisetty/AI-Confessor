@@ -62,7 +62,11 @@ class Settings(BaseSettings):
     @property
     def resolved_model(self) -> str:
         """Model ID for the effective provider (what /health and /api/config report)."""
-        return self.anthropic_model if self.resolved_provider == "anthropic" else self.openai_model
+        if self.resolved_provider == "anthropic":
+            return self.anthropic_model
+        if self.resolved_provider == "openai":
+            return self.openai_model
+        return "mock"  # no live model in mock mode — don't imply otherwise
 
     @property
     def mock_mode(self) -> bool:

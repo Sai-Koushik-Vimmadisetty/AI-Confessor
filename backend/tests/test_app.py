@@ -28,6 +28,7 @@ async def test_mock_llm_streams_multiple_chunks():
 
 
 def test_get_llm_client_uses_mock_without_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     from app.config import Settings
 
@@ -99,6 +100,7 @@ def test_config_leaks_no_secrets(test_client):
     r = test_client.get("/api/config")
     assert r.status_code == 200
     text = r.text
+    assert "ANTHROPIC_API_KEY" not in text
     assert "OPENAI_API_KEY" not in text
     assert "sk-" not in text
 

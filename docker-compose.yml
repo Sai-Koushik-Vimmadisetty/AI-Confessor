@@ -7,9 +7,12 @@ services:
     env_file:
       - .env
     environment:
-      # Sensible defaults; override in .env (see .env.example)
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-      LLM_MODEL: ${LLM_MODEL:-gpt-4o}
+      # Sensible defaults; override in .env (see .env.example).
+      # Empty LLM_PROVIDER -> auto-select: ANTHROPIC_API_KEY -> anthropic,
+      # else OPENAI_API_KEY -> openai, else mock (no key needed).
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
       TTS_ENABLED: ${TTS_ENABLED:-true}
       TTS_VOICE: ${TTS_VOICE:-en-US-AriaNeural}
     volumes:
