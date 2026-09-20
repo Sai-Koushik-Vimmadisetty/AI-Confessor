@@ -1,0 +1,111 @@
+# 🎙️ AI Confessor — Conversational AI Platform
+
+A real-time conversational AI platform: speak into your mic, get a spoken AI
+reply back. FastAPI + WebSockets stream GPT-4 tokens with low latency, Vosk
+transcribes your voice on-device, and Edge TTS voices the reply. Text chat
+works as a fallback. Everything runs in Docker with one command.
+
+```
+Browser (mic / chat UI)
+   │  WebSocket /ws/chat (JSON: text, audio chunks, tokens, mp3 audio)
+   ▼
+FastAPI backend ──► Vosk STT (on-device) ──► GPT-4 (streaming) ──► Edge TTS ──► 🔊
+   │ per-connection session state (conversation history, sliding window)
+```
+
+## Quick start
+
+```bash
+cp .env.example .env          # add OPENAI_API_KEY, or leave empty for MOCK mode
+docker compose up --build     # first run downloads the ~40 MB Vosk model automatically
+```
+
+Open **http://localhost:3000**, allow mic access, and talk.
+
+Without an `OPENAI_API_KEY` the app runs in **MOCK mode**: canned streaming
+replies exercise the entire voice → AI → voice loop end-to-end.
+
+## Project layout
+
+```
+ai-confessor/
+├── backend/
+│   ├── app/
+│   │   ├── main.py        # FastAPI app, /ws/chat protocol, REST endpoints
+│   │   ├── config.py      # env-driven settings (no hardcoded secrets)
+│   │   ├── llm.py         # pluggable LLM client: OpenAI streaming / mock
+│   │   ├── stt.py         # Vosk STT, auto-downloads small EN model
+│   │   ├── tts.py         # Edge TTS (free, keyless) -> MP3 bytes
+│   │   └── sessions.py    # per-connection session state + history window
+│   ├── requirements.txt   # pinned
+│   └── Dockerfile
+├── frontend/              # React + TypeScript + Vite
+│   ├── src/
+│   │   ├── components/ChatWindow.tsx  # chat UI, streaming display
+│   │   └── lib/
+│   │       ├── ws.ts      # typed WebSocket client
+│   │       └── audio.ts   # mic capture (16 kHz PCM) + reply playback
+│   ├── public/pcm-processor.js        # AudioWorklet PCM capture
+│   ├── nginx.conf         # serves UI, proxies /api + /ws to backend
+│   └── Dockerfile         # multi-stage build -> nginx
+├── docker-compose.yml     # one-command local run
+├── .env.example           # every variable, no secrets
+└── aws/                   # EC2 + docker-compose deploy script (not run)
+```
+
+## Configuration
+
+All settings come from environment variables (see `.env.example`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LLM_PROVIDER` | `openai` | LLM backend (`openai` = live) |
+| `LLM_MODEL` | `gpt-4o` | Any OpenAI chat model |
+| `OPENAI_API_KEY` | _(empty)_ | Unset → MOCK mode |
+| `OPENAI_BASE_URL` | _(empty)_ | Proxy / Azure-compatible endpoint |
+| `VOSK_MODEL_NAME` | `vosk-model-small-en-us-0.15` | STT model (auto-downloaded) |
+| `TTS_ENABLED` | `true` | Spoken replies on/off |
+| `TTS_VOICE` | `en-US-AriaNeural` | Edge TTS voice |
+| `MAX_HISTORY_MESSAGES` | `20` | Sliding history window per session |
+
+To add a new LLM provider: implement the `LLMClient` protocol in
+`backend/app/llm.py` and register it in `get_llm_client()`.
+
+## WebSocket protocol
+
+`ws://localhost:8000/ws/chat` (via nginx at `/ws/chat` in compose).
+
+Client → server: `hello` · `text` · `audio_chunk` (base64 16 kHz/16-bit/mono PCM)
+· `end_audio` · `reset` · `ping`
+
+Server → client: `session` · `transcript` (partial + final) · `token` (streamed)
+· `audio` (base64 MP3 reply) · `response_done` · `reset_done` · `pong` · `error`
+
+## Local dev (without Docker)
+
+```bash
+# backend
+cd backend && python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload          # http://localhost:8000
+
+# frontend
+cd frontend && npm install && npm run dev   # http://localhost:5173
+```
+
+## Tests
+
+```bash
+cd backend && source .venv/bin/activate
+pytest tests/ -v
+```
+
+Covers: mock-mode streaming, session isolation (concurrent users), WebSocket
+round-trip, and the STT/TTS modules (network-dependent parts are skipped
+gracefully offline).
+
+## AWS deployment
+
+See `aws/README.md` + `aws/deploy-ec2.sh`: provisions an EC2 instance, installs
+Docker, and runs `docker compose up`. **Prepared but never executed — no AWS
+credentials were available, so treat it as untested.**

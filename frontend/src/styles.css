@@ -1,0 +1,120 @@
+:root {
+  --bg: #0f1117;
+  --panel: #171a23;
+  --bubble-user: #2b5cff;
+  --bubble-ai: #222634;
+  --text: #e8eaf0;
+  --muted: #9aa0b4;
+  --accent: #ff5c7a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.chat-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--panel);
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid #262b3a;
+}
+
+.chat-header h1 { margin: 0; font-size: 1.25rem; }
+.subtitle { margin: 2px 0 0; font-size: 0.75rem; color: var(--muted); }
+.header-actions { display: flex; gap: 8px; }
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.empty-state { text-align: center; color: var(--muted); margin-top: 15vh; }
+.empty-state .hint { font-size: 0.8rem; }
+
+.msg { display: flex; }
+.msg.user { justify-content: flex-end; }
+.bubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg.user .bubble { background: var(--bubble-user); border-bottom-right-radius: 4px; }
+.msg.assistant .bubble { background: var(--bubble-ai); border-bottom-left-radius: 4px; }
+.bubble.interim { opacity: 0.6; font-style: italic; }
+.caret { animation: blink 0.8s steps(1) infinite; color: var(--accent); }
+@keyframes blink { 50% { opacity: 0; } }
+
+.thinking { color: var(--muted); font-style: italic; font-size: 0.85rem; }
+
+.composer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid #262b3a;
+  align-items: center;
+}
+.composer input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 24px;
+  border: 1px solid #2c3247;
+  background: #10131b;
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+}
+.composer input:focus { border-color: var(--bubble-user); }
+
+.btn {
+  padding: 12px 20px;
+  border-radius: 24px;
+  border: none;
+  background: var(--bubble-user);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn.small { padding: 8px 12px; font-size: 0.8rem; background: #262b3a; }
+.btn.small.active { background: var(--bubble-user); }
+
+.mic {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  font-size: 1.5rem;
+  background: #262b3a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mic:disabled { opacity: 0.35; cursor: default; }
+.mic.recording {
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% { box-shadow: 0 0 0 12px rgba(255, 92, 122, 0.15); }
+}

@@ -1,0 +1,24 @@
+# secrets & local config
+.env
+*.pem
+*.key
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# node
+node_modules/
+frontend/dist/
+
+# vosk models (auto-downloaded; persisted via docker volume)
+models/
+backend/models/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store

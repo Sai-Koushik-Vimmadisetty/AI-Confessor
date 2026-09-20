@@ -1,0 +1,36 @@
+services:
+  backend:
+    build: ./backend
+    container_name: ai-confessor-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Sensible defaults; override in .env (see .env.example)
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o}
+      TTS_ENABLED: ${TTS_ENABLED:-true}
+      TTS_VOICE: ${TTS_VOICE:-en-US-AriaNeural}
+    volumes:
+      # Persists the auto-downloaded Vosk model across restarts
+      - vosk-models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: ai-confessor-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  vosk-models:
