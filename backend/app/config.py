@@ -3,11 +3,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # LLM provider selection. "openai" is the only live provider today;
-    # adding a new provider = implement LLMClient in llm.py and register it here.
-    llm_provider: str = "openai"
-    llm_model: str = "gpt-4o"
+    # LLM provider selection: "anthropic" | "openai" | "mock".
+    # Empty/unrecognized -> auto-select: anthropic if ANTHROPIC_API_KEY is set,
+    # else openai if OPENAI_API_KEY is set, else mock (no key needed).
+    # Adding a new provider = implement LLMClient in llm.py and register it here.
+    llm_provider: str = ""
+
+    # Anthropic (Claude)
+    anthropic_api_key: str | None = None
+    # Family alias that tracks the latest Sonnet snapshot; override via env if needed.
+    anthropic_model: str = "claude-sonnet-4-6"
+
+    # OpenAI
     openai_api_key: str | None = None
+    openai_model: str = "gpt-4o"
     openai_base_url: str | None = None  # override for proxies / Azure OpenAI compat endpoints
 
     # Vosk speech-to-text
@@ -34,9 +43,31 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
+    def resolved_provider(self) -> str:
+        """Effective LLM provider after key availability is considered."""
+        want = (self.llm_provider or "").strip().lower()
+        if want == "anthropic":
+            return "anthropic" if self.anthropic_api_key else "mock"
+        if want == "openai":
+            return "openai" if self.openai_api_key else "mock"
+        if want == "mock":
+            return "mock"
+        # Anything else (including unset) -> auto-select by key availability.
+        if self.anthropic_api_key:
+            return "anthropic"
+        if self.openai_api_key:
+            return "openai"
+        return "mock"
+
+    @property
+    def resolved_model(self) -> str:
+        """Model ID for the effective provider (what /health and /api/config report)."""
+        return self.anthropic_model if self.resolved_provider == "anthropic" else self.openai_model
+
+    @property
     def mock_mode(self) -> bool:
         """True when no API key is configured — the app runs end-to-end with canned replies."""
-        return not self.openai_api_key
+        return self.resolved_provider == "mock"
 
 
 settings = Settings()

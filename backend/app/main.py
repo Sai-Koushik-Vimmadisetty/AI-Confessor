@@ -70,8 +70,8 @@ async def health():
     return {
         "status": "ok",
         "mock_mode": settings.mock_mode,
-        "llm_provider": settings.llm_provider,
-        "llm_model": settings.llm_model,
+        "llm_provider": settings.resolved_provider,
+        "llm_model": settings.resolved_model,
         "stt_available": stt_engine is not None,
         "tts_enabled": settings.tts_enabled,
         "active_sessions": session_manager.count(),
@@ -86,7 +86,8 @@ async def client_config():
         "tts_enabled": settings.tts_enabled,
         "stt_available": stt_engine is not None,
         "stt_sample_rate": settings.stt_sample_rate,
-        "llm_model": settings.llm_model,
+        "llm_provider": settings.resolved_provider,
+        "llm_model": settings.resolved_model,
     }
 
 
