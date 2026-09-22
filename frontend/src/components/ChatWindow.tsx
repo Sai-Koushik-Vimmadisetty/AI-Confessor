@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { playReplyAudio, speakReplyText, startRecording, stopAllAudio, type Recorder } from '../lib/audio';
+import { playReplyAudio, speakReplyText, startRecording, stopAllAudio, warmUpVoices, type Recorder } from '../lib/audio';
 import { ChatSocket, fetchServerConfig, type ServerConfig, type ServerMessage } from '../lib/ws';
 
 interface ChatMsg {
@@ -139,6 +139,7 @@ export default function ChatWindow() {
     if (!text || !socketRef.current) return;
     serverAudioRef.current = false;
     stopAllAudio();
+    warmUpVoices();
     setMessages((prev) => [...prev, { id: nextId(), role: 'user', text }]);
     setInput('');
     setThinking(true);
@@ -154,6 +155,7 @@ export default function ChatWindow() {
       return;
     }
     try {
+      warmUpVoices();
       const recorder = await startRecording((chunk) => socketRef.current?.sendAudioChunk(chunk));
       recorderRef.current = recorder;
       setRecording(true);
@@ -198,6 +200,7 @@ export default function ChatWindow() {
               voiceOnRef.current = next;
               setVoiceOn(next);
               if (!next) stopAllAudio();
+              else warmUpVoices();
             }}
             title="Toggle spoken replies"
           >

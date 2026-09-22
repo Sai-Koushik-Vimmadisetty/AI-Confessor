@@ -108,25 +108,66 @@ export function stopAllAudio() {
   playing = false;
   // And stop any browser-synthesized speech.
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  stopResumeTimer();
 }
 
 /* Browser-native speech synthesis fallback. The server normally sends MP3
    audio for each reply, but if that fails (e.g. Edge TTS unreachable from
    the server's network), the browser speaks the reply text itself using the
    device's built-in voices — no network or API key needed. */
+
+// iOS Safari loads voices asynchronously and its speech engine is finicky:
+// the first speak() can silently do nothing, and it may start (or get stuck)
+// paused. Warm up the voice list on user gestures and keep resuming while
+// an utterance is active.
+export function warmUpVoices() {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.getVoices();
+}
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+  };
+}
+
+let resumeTimer: number | null = null;
+
+function stopResumeTimer() {
+  if (resumeTimer !== null) {
+    clearInterval(resumeTimer);
+    resumeTimer = null;
+  }
+}
+
 export function speakReplyText(text: string) {
   if (!('speechSynthesis' in window)) return;
   const clean = text.replace(/[*_#`]/g, '').trim();
   if (!clean) return;
+  const synth = window.speechSynthesis;
   // Don't stack up: a new reply replaces whatever is being spoken.
-  window.speechSynthesis.cancel();
+  synth.cancel();
+  stopResumeTimer();
   const utter = new SpeechSynthesisUtterance(clean);
   utter.rate = 1;
   utter.pitch = 1;
-  const voices = window.speechSynthesis.getVoices();
+  const voices = synth.getVoices();
   const preferred =
     voices.find((v) => v.lang?.toLowerCase().startsWith('en-us')) ||
     voices.find((v) => v.lang?.toLowerCase().startsWith('en'));
   if (preferred) utter.voice = preferred;
-  window.speechSynthesis.speak(utter);
+  const finish = () => stopResumeTimer();
+  utter.onend = finish;
+  utter.onerror = finish;
+  synth.speak(utter);
+  // Nudge in case the engine started paused (common on iOS).
+  if (synth.paused) synth.resume();
+  // iOS may pause or stall mid-utterance — keep resuming until it finishes.
+  // Safety cap: ~1 minute of speech, then give up so the timer can't leak.
+  let ticks = 0;
+  resumeTimer = window.setInterval(() => {
+    ticks += 1;
+    if (synth.paused) synth.resume();
+    if (!synth.speaking || ticks > 60) stopResumeTimer();
+  }, 1000);
 }
