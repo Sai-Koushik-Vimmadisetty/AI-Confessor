@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { playReplyAudio, startRecording, stopAllAudio, type Recorder } from '../lib/audio';
+import { playReplyAudio, speakReplyText, startRecording, stopAllAudio, type Recorder } from '../lib/audio';
 import { ChatSocket, fetchServerConfig, type ServerConfig, type ServerMessage } from '../lib/ws';
 
 interface ChatMsg {
@@ -24,6 +24,10 @@ export default function ChatWindow() {
   // changes the handler's identity (which would reconnect the socket and
   // drop the session + conversation history).
   const voiceOnRef = useRef(voiceOn);
+  // Tracks whether the server sent MP3 audio for the current turn. If it
+  // didn't (TTS unavailable server-side), the browser speaks the reply text
+  // itself on response_done so voice replies still work.
+  const serverAudioRef = useRef(false);
   const [config, setConfig] = useState<ServerConfig | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
 
@@ -59,15 +63,22 @@ export default function ChatWindow() {
           patchStreaming(msg.token);
           break;
         case 'audio':
+          serverAudioRef.current = true;
           if (voiceOnRef.current) playReplyAudio(msg.data);
           break;
         case 'response_done':
           finalizeStreaming(msg.full_text);
           setLiveTranscript('');
+          // Fallback: server sent no audio for this turn, so speak the text
+          // with the device's built-in voice instead of staying silent.
+          if (voiceOnRef.current && !serverAudioRef.current && msg.full_text) {
+            speakReplyText(msg.full_text);
+          }
           break;
         case 'transcript':
           setLiveTranscript(msg.text);
           if (msg.final && msg.text) {
+            serverAudioRef.current = false;
             setMessages((prev) => [...prev, { id: nextId(), role: 'user', text: msg.text }]);
             setThinking(true);
           }
@@ -126,6 +137,8 @@ export default function ChatWindow() {
   const sendText = () => {
     const text = input.trim();
     if (!text || !socketRef.current) return;
+    serverAudioRef.current = false;
+    stopAllAudio();
     setMessages((prev) => [...prev, { id: nextId(), role: 'user', text }]);
     setInput('');
     setThinking(true);
@@ -184,6 +197,7 @@ export default function ChatWindow() {
               const next = !voiceOnRef.current;
               voiceOnRef.current = next;
               setVoiceOn(next);
+              if (!next) stopAllAudio();
             }}
             title="Toggle spoken replies"
           >

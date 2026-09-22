@@ -106,4 +106,27 @@ export function stopAllAudio() {
     currentAudio = null;
   }
   playing = false;
+  // And stop any browser-synthesized speech.
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+/* Browser-native speech synthesis fallback. The server normally sends MP3
+   audio for each reply, but if that fails (e.g. Edge TTS unreachable from
+   the server's network), the browser speaks the reply text itself using the
+   device's built-in voices — no network or API key needed. */
+export function speakReplyText(text: string) {
+  if (!('speechSynthesis' in window)) return;
+  const clean = text.replace(/[*_#`]/g, '').trim();
+  if (!clean) return;
+  // Don't stack up: a new reply replaces whatever is being spoken.
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.rate = 1;
+  utter.pitch = 1;
+  const voices = window.speechSynthesis.getVoices();
+  const preferred =
+    voices.find((v) => v.lang?.toLowerCase().startsWith('en-us')) ||
+    voices.find((v) => v.lang?.toLowerCase().startsWith('en'));
+  if (preferred) utter.voice = preferred;
+  window.speechSynthesis.speak(utter);
 }
